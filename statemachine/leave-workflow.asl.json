@@ -1,0 +1,80 @@
+{
+  "StartAt": "SendApprovalEmail",
+  "States": {
+    "SendApprovalEmail": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+      "TimeoutSeconds": 259200,
+      "Parameters": {
+        "FunctionName": "send-approval-email-souvik",
+        "Payload": {
+          "taskToken.$": "$$.Task.Token",
+          "leaveRequest.$": "$"
+        }
+      },
+      "Catch": [
+        {
+          "ErrorEquals": ["States.Timeout"],
+          "Next": "NotifyTimeout"
+        }
+      ],
+      "ResultPath": "$.status",
+      "Next": "DecisionChoice"
+    },
+
+    "DecisionChoice": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.status.decision",
+          "StringEquals": "APPROVED",
+          "Next": "NotifyApproved"
+        },
+        {
+          "Variable": "$.status.decision",
+          "StringEquals": "REJECTED",
+          "Next": "NotifyRejected"
+        }
+      ]
+    },
+
+    "NotifyApproved": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "notify-user-souvik",
+        "Payload": {
+          "status": "APPROVED",
+          "data.$": "$"
+        }
+      },
+      "End": true
+    },
+
+    "NotifyRejected": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "notify-user-souvik",
+        "Payload": {
+          "status": "REJECTED",
+          "data.$": "$"
+        }
+      },
+      "End": true
+    },
+
+    "NotifyTimeout": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "notify-user-souvik",
+        "Payload": {
+          "status": "TIMED_OUT",
+          "data.$": "$"
+        }
+      },
+      "End": true
+    }
+  }
+}

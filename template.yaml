@@ -1,0 +1,219 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Leave approval workflow (API Gateway + Step Functions)
+
+Globals:
+  Function:
+    Runtime: nodejs24.x
+    Timeout: 10
+    MemorySize: 128
+
+Resources:
+  LeaveApprovalStateMachineSouvik:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Type: STANDARD
+      DefinitionUri: statemachine/leave-workflow.asl.json
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: '*'
+
+  SendApprovalEmailFunctionSouvik:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: send-approval-email-souvik
+      Handler: sendApprovalEmail.handler
+      CodeUri: ./
+      Environment:
+        Variables:
+          SOURCE_EMAIL: souvik.biswas@antstack.io
+          APPROVER_EMAIL: biswassouvik284@gmail.com
+          DECISION_API_BASE_URL: !Sub https://${LeaveApiSouvik}.execute-api.${AWS::Region}.amazonaws.com/test/leave/decision
+
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action:
+              - ses:SendEmail
+              - ses:SendTemplatedEmail
+            Resource: '*'
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: 'es2020'
+        Sourcemap: true
+        External:
+          - '@aws-sdk/*'
+        EntryPoints:
+          - src/functions/sendApprovalEmail.ts
+
+  ResumeApprovalFunctionSouvik:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: resume-approval-souvik
+      Handler: resumeApproval.handler
+      CodeUri: ./
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action:
+              - states:SendTaskSuccess
+              - states:SendTaskFailure
+            Resource: '*'
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: 'es2020'
+        Sourcemap: true
+        External:
+          - '@aws-sdk/*'
+        EntryPoints:
+          - src/functions/resumeApproval.ts
+
+  NotifyUserFunctionSouvik:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: notify-user-souvik
+      Handler: notifyUser.handler
+      CodeUri: ./
+      Environment:
+        Variables:
+          SOURCE_EMAIL: souvik.biswas@antstack.io
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action:
+              - ses:SendEmail
+              - ses:SendTemplatedEmail
+            Resource: '*'
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: 'es2020'
+        Sourcemap: true
+        External:
+          - '@aws-sdk/*'
+        EntryPoints:
+          - src/functions/notifyUser.ts
+
+  LeaveApiSouvik:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: test
+      DefinitionBody:
+        openapi: '3.0.1'
+        info:
+          title: Leave API Souvik
+          version: '1.0'
+        paths:
+          /leave/request:
+            post:
+              responses:
+                '202':
+                  description: Accepted
+              x-amazon-apigateway-integration:
+                type: aws
+                httpMethod: POST
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:states:action/StartExecution
+                credentials: !GetAtt ApiGatewayStepFunctionRoleSouvik.Arn
+                requestTemplates:
+                  application/json: !Sub |
+                    {
+                      "stateMachineArn": "${LeaveApprovalStateMachineSouvik}",
+                      "input": "$util.escapeJavaScript($input.body)"
+                    }
+                responses:
+                  default:
+                    statusCode: '202'
+          /leave/decision:
+            get:
+              parameters:
+                - name: token
+                  in: query
+                  required: true
+                  schema:
+                    type: string
+                - name: status
+                  in: query
+                  required: true
+                  schema:
+                    type: string
+                    enum: [APPROVED, REJECTED]
+              responses:
+                '200':
+                  description: Decision accepted
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResumeApprovalFunctionSouvik.Arn}/invocations
+
+  ApiGatewayStepFunctionRoleSouvik:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ApiGatewayStartStepFunction
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource: !Ref LeaveApprovalStateMachineSouvik
+
+  LeaveApprovalRequestTemplateSouvik:
+    Type: AWS::SES::Template
+    Properties:
+      Template:
+        TemplateName: LeaveApprovalRequestSouvik
+        SubjectPart: Leave approval required
+        TextPart: |
+          A leave request requires your approval.
+
+          Employee: {{employeeEmail}}
+          From: {{fromDate}}
+          To: {{toDate}}
+          Reason: {{reason}}
+
+          Approve: {{approveLink}}
+          Reject: {{rejectLink}}
+
+          This request expires in 3 days.
+        HtmlPart: |
+          <p>A leave request requires your approval.</p>
+          <p>
+            <strong>Employee:</strong> {{employeeEmail}}<br/>
+            <strong>From:</strong> {{fromDate}}<br/>
+            <strong>To:</strong> {{toDate}}<br/>
+            <strong>Reason:</strong> {{reason}}
+          </p>
+          <a href="{{approveLink}}">Approve</a> |
+          <a href="{{rejectLink}}">Reject</a>
+
+  LeaveDecisionNotificationTemplateSouvik:
+    Type: AWS::SES::Template
+    Properties:
+      Template:
+        TemplateName: LeaveDecisionNotificationSouvik
+        SubjectPart: Leave request {{status}}
+        TextPart: |
+          Your leave request has been {{status}}.
+          From: {{fromDate}}
+          To: {{toDate}}
+          {{message}}
+        HtmlPart: |
+          <p>Your leave request has been <strong>{{status}}</strong>.</p>
+
+  ResumeApprovalLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ResumeApprovalFunctionSouvik
+      Principal: apigateway.amazonaws.com
