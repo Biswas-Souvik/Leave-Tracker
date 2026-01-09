@@ -8,6 +8,12 @@ Globals:
     Timeout: 10
     MemorySize: 128
 
+Parameters:
+  JwtSecret:
+    Type: String
+    NoEcho: true
+    Description: Secret key for JWT authorizer
+
 Resources:
   LeaveApprovalStateMachineSouvik:
     Type: AWS::Serverless::StateMachine
@@ -17,6 +23,90 @@ Resources:
       Policies:
         - LambdaInvokePolicy:
             FunctionName: '*'
+
+  LeaveApiSouvik:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: test
+      Auth:
+        DefaultAuthorizer: JwtLeaveTrackerSouvik
+        Authorizers:
+          JwtLeaveTrackerSouvik:
+            FunctionArn: !GetAtt JwtLeaveTrackerFunctionSouvik.Arn
+            Identity:
+              Header: Authorization
+      DefinitionBody:
+        openapi: '3.0.1'
+        info:
+          title: Leave API Souvik
+          version: '1.0'
+        paths:
+          /leave/request:
+            post:
+              responses:
+                '200':
+                  description: Accepted
+              x-amazon-apigateway-integration:
+                type: aws
+                httpMethod: POST
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:states:action/StartExecution
+                credentials: !GetAtt ApiGatewayStepFunctionRoleSouvik.Arn
+                requestTemplates:
+                  application/json: !Sub |
+                    {
+                      "stateMachineArn": "${LeaveApprovalStateMachineSouvik}",
+                      "input": "$util.escapeJavaScript($input.body)"
+                    }
+                responses:
+                  '200':
+                    statusCode: 200
+                    responseTemplates:
+                      application/json: |
+                        {
+                          "success": true,
+                          "message": "Leave request submitted successfully",
+                        }
+          /leave/decision:
+            get:
+              parameters:
+                - name: token
+                  in: query
+                  required: true
+                  schema:
+                    type: string
+                - name: status
+                  in: query
+                  required: true
+                  schema:
+                    type: string
+                    enum: [APPROVED, REJECTED]
+              responses:
+                '200':
+                  description: Decision accepted
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResumeApprovalFunctionSouvik.Arn}/invocations
+
+  JwtLeaveTrackerFunctionSouvik:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs24.x
+      Handler: authorizer.handler
+      CodeUri: ./
+      Environment:
+        Variables:
+          JWT_SECRET: !Ref JwtSecret
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: 'es2020'
+        Sourcemap: true
+        External:
+          - '@aws-sdk/*'
+        EntryPoints:
+          - src/auth/authorizer.ts
 
   SendApprovalEmailFunctionSouvik:
     Type: AWS::Serverless::Function
@@ -98,57 +188,6 @@ Resources:
           - '@aws-sdk/*'
         EntryPoints:
           - src/functions/notifyUser.ts
-
-  LeaveApiSouvik:
-    Type: AWS::Serverless::Api
-    Properties:
-      StageName: test
-      DefinitionBody:
-        openapi: '3.0.1'
-        info:
-          title: Leave API Souvik
-          version: '1.0'
-        paths:
-          /leave/request:
-            post:
-              responses:
-                '202':
-                  description: Accepted
-              x-amazon-apigateway-integration:
-                type: aws
-                httpMethod: POST
-                uri: !Sub arn:aws:apigateway:${AWS::Region}:states:action/StartExecution
-                credentials: !GetAtt ApiGatewayStepFunctionRoleSouvik.Arn
-                requestTemplates:
-                  application/json: !Sub |
-                    {
-                      "stateMachineArn": "${LeaveApprovalStateMachineSouvik}",
-                      "input": "$util.escapeJavaScript($input.body)"
-                    }
-                responses:
-                  default:
-                    statusCode: '202'
-          /leave/decision:
-            get:
-              parameters:
-                - name: token
-                  in: query
-                  required: true
-                  schema:
-                    type: string
-                - name: status
-                  in: query
-                  required: true
-                  schema:
-                    type: string
-                    enum: [APPROVED, REJECTED]
-              responses:
-                '200':
-                  description: Decision accepted
-              x-amazon-apigateway-integration:
-                type: aws_proxy
-                httpMethod: POST
-                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResumeApprovalFunctionSouvik.Arn}/invocations
 
   ApiGatewayStepFunctionRoleSouvik:
     Type: AWS::IAM::Role

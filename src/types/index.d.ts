@@ -24,3 +24,19 @@ export interface NotifyUserEvent {
   status: string;
   data: NotifyUserData;
 }
+
+export interface PolicyStatement {
+  Action: string;
+  Effect: 'Allow' | 'Deny';
+  Resource: string;
+}
+
+export interface PolicyDocument {
+  Version: string;
+  Statement: PolicyStatement[];
+}
+
+export interface Policy {
+  principalId: string;
+  policyDocument: PolicyDocument;
+}
