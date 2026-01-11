@@ -1,0 +1,70 @@
+openapi: "3.0.1"
+info:
+  title: "Leave API Souvik"
+  version: "1.0"
+servers:
+- url: "https://n168f0wpp0.execute-api.ap-south-1.amazonaws.com/{basePath}"
+  variables:
+    basePath:
+      default: "Stage"
+paths:
+  /leave/request:
+    post:
+      responses:
+        "200":
+          description: "200 response"
+          content: {}
+      security:
+      - JwtLeaveTrackerSouvik: []
+      x-amazon-apigateway-integration:
+        type: "aws"
+        uri: "arn:aws:apigateway:ap-south-1:states:action/StartExecution"
+        credentials: "arn:aws:iam::817901212217:role/LeaveTrackerSouvik-ApiGatewayStepFunctionRoleSouvik-fczEOqAs0X4q"
+        httpMethod: "POST"
+        responses:
+          "200":
+            statusCode: "200"
+            responseTemplates:
+              application/json: "{\n  \"success\": true,\n  \"message\": \"Leave request\
+                \ submitted successfully\",\n}\n"
+        requestTemplates:
+          application/json: "{\n  \"stateMachineArn\": \"arn:aws:states:ap-south-1:817901212217:stateMachine:LeaveApprovalStateMachineSouvik-H9rpc2bkJlRi\"\
+            ,\n  \"input\": \"$util.escapeJavaScript($input.body)\"\n}\n"
+        passthroughBehavior: "when_no_match"
+  /leave/decision:
+    get:
+      parameters:
+      - name: "token"
+        in: "query"
+        required: true
+        schema:
+          type: "string"
+      - name: "status"
+        in: "query"
+        required: true
+        schema:
+          type: "string"
+      responses:
+        "200":
+          description: "200 response"
+          content: {}
+      security:
+      - JwtLeaveTrackerSouvik: []
+      x-amazon-apigateway-integration:
+        type: "aws_proxy"
+        uri: "arn:aws:apigateway:ap-south-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-south-1:817901212217:function:resume-approval-souvik/invocations"
+        httpMethod: "POST"
+        passthroughBehavior: "when_no_match"
+        responseTransferMode: "BUFFERED"
+components:
+  securitySchemes:
+    JwtLeaveTrackerSouvik:
+      type: "apiKey"
+      name: "Authorization"
+      in: "header"
+      x-amazon-apigateway-authtype: "custom"
+      x-amazon-apigateway-authorizer:
+        type: "token"
+        authorizerUri: "arn:aws:apigateway:ap-south-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-south-1:817901212217:function:LeaveTrackerSouvik-JwtLeaveTrackerFunctionSouvik-NLLcghyxvygg/invocations"
+        authorizerResultTtlInSeconds: 300
+x-amazon-apigateway-security-policy: "TLS_1_0"
