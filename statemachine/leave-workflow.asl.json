@@ -1,15 +1,16 @@
 {
+  "QueryLanguage": "JSONata",
   "StartAt": "SendApprovalEmail",
   "States": {
     "SendApprovalEmail": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
       "TimeoutSeconds": 259200,
-      "Parameters": {
+      "Arguments": {
         "FunctionName": "send-approval-email-souvik",
         "Payload": {
-          "taskToken.$": "$$.Task.Token",
-          "leaveRequest.$": "$"
+          "taskToken": "{% $states.context.Task.Token %}",
+          "leaveRequest": "{% $states.input %}"
         }
       },
       "Catch": [
@@ -18,7 +19,6 @@
           "Next": "NotifyTimeout"
         }
       ],
-      "ResultPath": "$.status",
       "Next": "DecisionChoice"
     },
 
@@ -26,26 +26,25 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.status.decision",
-          "StringEquals": "APPROVED",
+          "Condition": "{% $states.input.decision = 'APPROVED' %}",
           "Next": "NotifyApproved"
         },
         {
-          "Variable": "$.status.decision",
-          "StringEquals": "REJECTED",
+          "Condition": "{% $states.input.decision = 'REJECTED' %}",
           "Next": "NotifyRejected"
         }
-      ]
+      ],
+      "Default": "NotifyTimeout"
     },
 
     "NotifyApproved": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
+      "Arguments": {
         "FunctionName": "notify-user-souvik",
         "Payload": {
           "status": "APPROVED",
-          "data.$": "$"
+          "data": "{% $states.context.Execution.Input %}"
         }
       },
       "End": true
@@ -54,11 +53,11 @@
     "NotifyRejected": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
+      "Arguments": {
         "FunctionName": "notify-user-souvik",
         "Payload": {
           "status": "REJECTED",
-          "data.$": "$"
+          "data": "{% $states.context.Execution.Input %}"
         }
       },
       "End": true
@@ -67,11 +66,11 @@
     "NotifyTimeout": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
+      "Arguments": {
         "FunctionName": "notify-user-souvik",
         "Payload": {
           "status": "TIMED_OUT",
-          "data.$": "$"
+          "data": "{% $states.context.Execution.Input %}"
         }
       },
       "End": true
