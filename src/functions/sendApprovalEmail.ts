@@ -4,6 +4,7 @@ import { StartApprovalEvent, LeaveRequest } from '../types';
 
 export const handler = async (event: StartApprovalEvent) => {
   try {
+    console.log(JSON.stringify(event, null, 2));
     const { taskToken, leaveRequest } = event;
     if (!taskToken || !leaveRequest)
       return createResponse('Tasktoken and Leave Request are required.', 400);

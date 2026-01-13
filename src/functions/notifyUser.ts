@@ -4,8 +4,8 @@ import { notifyUser } from '../utils/ses.utils';
 
 export const handler = async (event: NotifyUserEvent) => {
   try {
+    console.log(JSON.stringify(event, null, 2));
     const { status, data } = event;
-    console.log(event);
 
     let message = '';
     if (status === 'TIMED_OUT') {

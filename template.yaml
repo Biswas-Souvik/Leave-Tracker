@@ -28,13 +28,6 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: test
-      Auth:
-        DefaultAuthorizer: JwtLeaveTrackerSouvik
-        Authorizers:
-          JwtLeaveTrackerSouvik:
-            FunctionArn: !GetAtt JwtLeaveTrackerFunctionSouvik.Arn
-            Identity:
-              Header: Authorization
       DefinitionBody:
         openapi: '3.0.1'
         info:
@@ -43,6 +36,8 @@ Resources:
         paths:
           /leave/request:
             post:
+              security:
+                - LambdaAuthorizer: []
               responses:
                 '200':
                   description: Accepted
@@ -87,7 +82,16 @@ Resources:
                 type: aws_proxy
                 httpMethod: POST
                 uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResumeApprovalFunctionSouvik.Arn}/invocations
-
+        securityDefinitions:
+          LambdaAuthorizer:
+            type: apiKey
+            name: Authorization
+            in: header
+            x-amazon-apigateway-authtype: custom
+            x-amazon-apigateway-authorizer:
+              type: token
+              authorizerUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${JwtLeaveTrackerFunctionSouvik.Arn}/invocations
+              authorizerResultTtlInSeconds: 1
   JwtLeaveTrackerFunctionSouvik:
     Type: AWS::Serverless::Function
     Properties:
@@ -206,6 +210,22 @@ Resources:
                 Action:
                   - states:StartExecution
                 Resource: !Ref LeaveApprovalStateMachineSouvik
+
+  JwtAuthorizerInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref JwtLeaveTrackerFunctionSouvik
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LeaveApiSouvik}/*
+
+  ApproveLeaveFunctionApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ResumeApprovalFunctionSouvik
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LeaveApiSouvik}/*/*
 
   LeaveApprovalRequestTemplateSouvik:
     Type: AWS::SES::Template

@@ -7,6 +7,7 @@ const sfn = new SFNClient({});
 
 export const handler = async (event: ResumeApprovalEvent) => {
   try {
+    console.log(JSON.stringify(event, null, 2));
     const allowedStatus = ['APPROVED', 'REJECTED'];
     const { token, status } = event.queryStringParameters ?? {};
     if (!token || !status)
