@@ -27,7 +27,7 @@ export const handler = async (event: ResumeApprovalEvent) => {
 
     return createResponse(`Leave ${status.toLowerCase()}`);
   } catch (err) {
-    console.log('Error Approving: ' + (err as Error).message);
-    return createResponse(`Internal Server Error`, 500);
+    console.error('Error Approving: ' + (err as Error).message);
+    return createResponse('Internal Server Error', 500);
   }
 };

@@ -15,7 +15,7 @@ export const handler = async (event: NotifyUserEvent) => {
     console.log(resp);
     return createResponse('Notified User', 200);
   } catch (err) {
-    console.log('Error Notifying User: ' + (err as Error).message);
+    console.error('Error Notifying User: ' + (err as Error).message);
     return createResponse('Internal Server Error', 500);
   }
 };

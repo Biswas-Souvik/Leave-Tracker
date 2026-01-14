@@ -1,5 +1,5 @@
 import { Policy } from '../types';
-import jwt from 'jsonwebtoken';
+import { verify } from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -9,7 +9,7 @@ export const handler = async (event: any) => {
     const token = event.authorizationToken?.replace('Bearer ', '');
     if (!token) throw new Error('No token');
 
-    jwt.verify(token, JWT_SECRET);
+    verify(token, JWT_SECRET);
 
     return generatePolicy('user', 'Allow', event.methodArn);
   } catch (error: any) {
