@@ -28,6 +28,7 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: test
+      Description: Public API for leave approval callbacks
       DefinitionBody:
         openapi: '3.0.1'
         info:
@@ -197,6 +198,7 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${NotifyUserFunctionSouvik}
       RetentionInDays: 14
+
   NotifyUserFunctionSouvik:
     Type: AWS::Serverless::Function
     Properties:
