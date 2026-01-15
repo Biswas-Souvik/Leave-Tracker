@@ -1,6 +1,6 @@
 import { sentLeaveRequestEmail } from '../utils/ses.utils';
 import { createResponse, isValidLeaveRequest } from '../utils/lambda.utils';
-import { StartApprovalEvent, LeaveRequest } from '../types';
+import { StartApprovalEvent } from '../types';
 
 export const handler = async (event: StartApprovalEvent) => {
   try {

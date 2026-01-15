@@ -16,3 +16,11 @@ export function isValidLeaveRequest(obj: any): boolean {
       typeof obj.reason === 'string'
   );
 }
+
+export function getEnv(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`${key} is required`);
+  }
+  return value;
+}

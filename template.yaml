@@ -92,6 +92,7 @@ Resources:
               type: token
               authorizerUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${JwtLeaveTrackerFunctionSouvik.Arn}/invocations
               authorizerResultTtlInSeconds: 1
+
   JwtLeaveTrackerFunctionSouvik:
     Type: AWS::Serverless::Function
     Properties:
@@ -123,7 +124,6 @@ Resources:
           SOURCE_EMAIL: souvik.biswas@antstack.io
           APPROVER_EMAIL: biswassouvik284@gmail.com
           DECISION_API_BASE_URL: !Sub https://${LeaveApiSouvik}.execute-api.${AWS::Region}.amazonaws.com/test/leave/decision
-
       Policies:
         - Statement:
             Effect: Allow
@@ -166,6 +166,37 @@ Resources:
         EntryPoints:
           - src/functions/resumeApproval.ts
 
+  JwtLeaveTrackerFunctionSouvikLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${JwtLeaveTrackerFunctionSouvik}
+      RetentionInDays: 14
+
+  SendApprovalEmailFunctionSouvikLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${SendApprovalEmailFunctionSouvik}
+      RetentionInDays: 14
+
+  ResumeApprovalFunctionSouvikLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ResumeApprovalFunctionSouvik}
+      RetentionInDays: 14
+
+  NotifyUserFunctionSouvikLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${NotifyUserFunctionSouvik}
+      RetentionInDays: 14
   NotifyUserFunctionSouvik:
     Type: AWS::Serverless::Function
     Properties:

@@ -1,11 +1,12 @@
 import { LeaveRequest, NotifyUserData } from '../types';
+import { getEnv } from '../utils/lambda.utils';
 import { SESClient, SendTemplatedEmailCommand } from '@aws-sdk/client-ses';
 
 const ses = new SESClient({});
 
-const DECISION_API_BASE_URL = process.env.DECISION_API_BASE_URL!;
-const SOURCE_EMAIL = process.env.SOURCE_EMAIL!;
-const APPROVER_EMAIL = process.env.APPROVER_EMAIL!;
+const DECISION_API_BASE_URL = getEnv('DECISION_API_BASE_URL');
+const SOURCE_EMAIL = getEnv('SOURCE_EMAIL');
+const APPROVER_EMAIL = getEnv('APPROVER_EMAIL');
 
 export async function sentLeaveRequestEmail(
   taskToken: string,

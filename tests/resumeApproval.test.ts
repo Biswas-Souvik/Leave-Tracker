@@ -23,40 +23,31 @@ describe('resumeApproval handler', () => {
     jest.clearAllMocks();
   });
 
-  test('returns 400 when qeury string is missing', async () => {
-    mockCreateResponse.mockReturnValueOnce({
-      statusCode: 400,
-      body: 'Missing token or status',
+  describe('returns 400 for invalid query parameters', () => {
+    test.each([
+      {
+        name: 'query string is missing',
+        event: {},
+      },
+      {
+        name: 'token or status is missing',
+        event: { queryStringParameters: {} },
+      },
+    ])('$name', async ({ event }) => {
+      mockCreateResponse.mockReturnValueOnce({
+        statusCode: 400,
+        body: 'Missing token or status',
+      });
+
+      const res = await handler(event as unknown as any);
+
+      expect(mockSend).not.toHaveBeenCalled();
+      expect(mockCreateResponse).toHaveBeenCalledWith(
+        'Missing token or status',
+        400
+      );
+      expect(res.statusCode).toBe(400);
     });
-
-    const res = await handler({} as any);
-
-    expect(mockSend).not.toHaveBeenCalled();
-    expect(mockCreateResponse).toHaveBeenCalledWith(
-      'Missing token or status',
-      400
-    );
-    expect(res.statusCode).toBe(400);
-  });
-
-  test('returns 400 when token or status is missing', async () => {
-    mockCreateResponse.mockReturnValueOnce({
-      statusCode: 400,
-      body: 'Missing token or status',
-    });
-
-    const event = {
-      queryStringParameters: {},
-    };
-
-    const res = await handler(event as any);
-
-    expect(mockSend).not.toHaveBeenCalled();
-    expect(mockCreateResponse).toHaveBeenCalledWith(
-      'Missing token or status',
-      400
-    );
-    expect(res.statusCode).toBe(400);
   });
 
   test('returns 400 for invalid status', async () => {
@@ -79,60 +70,48 @@ describe('resumeApproval handler', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  test('sends task success for APPROVED', async () => {
-    mockSend.mockResolvedValueOnce({});
-    mockCreateResponse.mockReturnValueOnce({
-      statusCode: 200,
-      body: 'Leave approved',
-    });
-
-    const event = {
-      queryStringParameters: {
-        token: encodeURIComponent('task-token'),
+  describe('handler task success', () => {
+    test.each([
+      {
         status: 'APPROVED',
+        responseBody: 'Leave approved',
+        decision: 'APPROVED',
       },
-    };
-
-    const res = await handler(event as any);
-
-    expect(mockSend).toHaveBeenCalledTimes(1);
-
-    const command = mockSend.mock.calls[0][0] as any;
-    const input = command.input;
-
-    expect(input.taskToken).toBe('task-token');
-    expect(input.output).toBe(JSON.stringify({ decision: 'APPROVED' }));
-
-    expect(mockCreateResponse).toHaveBeenCalledWith('Leave approved');
-    expect(res.body).toBe('Leave approved');
-  });
-
-  test('sends task success for REJECTED', async () => {
-    mockSend.mockResolvedValueOnce({});
-    mockCreateResponse.mockReturnValueOnce({
-      statusCode: 200,
-      body: 'Leave rejected',
-    });
-
-    const event = {
-      queryStringParameters: {
-        token: encodeURIComponent('task-token'),
+      {
         status: 'REJECTED',
+        responseBody: 'Leave rejected',
+        decision: 'REJECTED',
       },
-    };
+    ])(
+      'sends task success for $status',
+      async ({ status, responseBody, decision }) => {
+        mockSend.mockResolvedValueOnce({});
+        mockCreateResponse.mockReturnValueOnce({
+          statusCode: 200,
+          body: responseBody,
+        });
 
-    const res = await handler(event as any);
+        const event = {
+          queryStringParameters: {
+            token: encodeURIComponent('task-token'),
+            status,
+          },
+        };
 
-    expect(mockSend).toHaveBeenCalledTimes(1);
+        const res = await handler(event as any);
 
-    const command = mockSend.mock.calls[0][0] as any;
-    const input = command.input;
+        expect(mockSend).toHaveBeenCalledTimes(1);
 
-    expect(input.taskToken).toBe('task-token');
-    expect(input.output).toBe(JSON.stringify({ decision: 'REJECTED' }));
+        const command = mockSend.mock.calls[0][0] as any;
+        const input = command.input;
 
-    expect(mockCreateResponse).toHaveBeenCalledWith('Leave rejected');
-    expect(res.body).toBe('Leave rejected');
+        expect(input.taskToken).toBe('task-token');
+        expect(input.output).toBe(JSON.stringify({ decision }));
+
+        expect(mockCreateResponse).toHaveBeenCalledWith(responseBody);
+        expect(res.body).toBe(responseBody);
+      }
+    );
   });
 
   test('returns 500 when SFN send fails', async () => {

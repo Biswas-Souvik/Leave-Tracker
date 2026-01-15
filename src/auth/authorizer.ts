@@ -1,7 +1,8 @@
 import { Policy } from '../types';
+import { getEnv } from '../utils/lambda.utils';
 import { verify } from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+const JWT_SECRET = getEnv('JWT_SECRET');
 
 export const handler = async (event: any) => {
   try {
