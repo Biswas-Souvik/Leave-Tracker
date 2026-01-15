@@ -15,7 +15,6 @@ describe('Authorizer handler', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.JWT_SECRET = 'test-secret';
   });
 
   it('should allow request when token is valid', async () => {
